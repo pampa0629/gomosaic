@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaflet TMS Example</title>
+    <link rel="stylesheet" href="./leaflet/leaflet.css" />
+    <style>
+        body { margin: 0; }
+        #map { width: 100%; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="./leaflet/leaflet.js"></script>
+    
+    <script>
+        var map = L.map('map').setView([0, 0], 2); // Set the initial view coordinates and zoom level
+
+        // Replace 'your_tms_url' with the actual URL of your TMS service
+        var tmsUrl = 'http://localhost:8080/{z}/{x}/{y}.png';
+
+        L.tileLayer(tmsUrl, {
+            attribution: 'Your Attribution Here',
+            maxZoom: 18,
+        }).addTo(map);
+    </script>
+</body>
+</html>
