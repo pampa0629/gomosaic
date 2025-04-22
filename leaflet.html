@@ -20,11 +20,13 @@
 
         // Replace 'your_tms_url' with the actual URL of your TMS service
         var tmsUrl = 'http://localhost:8080/{z}/{x}/{y}.png';
+        // var tmsUrl = 'http://192.168.72.27:8080/{z}/{x}/{y}.png';
 
         L.tileLayer(tmsUrl, {
             attribution: 'Your Attribution Here',
             maxZoom: 18,
         }).addTo(map);
+        
     </script>
 </body>
 </html>

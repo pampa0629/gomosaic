@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"net/http"
 	"strconv"
+	// "io/ioutil"
+	"io"
 	"strings"
 	
 	"github.com/gin-gonic/gin"
@@ -16,18 +19,22 @@ const TILE_SIZE = 256
 var mosaic Mosaic
 
 // 服务入口，参数为配置文件路径
-func service(jsonPath string) {
+// service(*input, *oss, *ak, *sk, *endpoint, *bucket)
+func service(input string, oss bool, ak, sk, endpoint, bucket string) {
+
 	fmt.Println("Starting service...")
 	// 关闭 Gin 的调试模式
 	gin.SetMode(gin.ReleaseMode)
+	gin.DefaultWriter = io.Discard
 
-	mosaic.Open(jsonPath)
-	defer mosaic.Close()
-
+	mosaic.Open(input, oss, ak, sk, endpoint, bucket)
+	// 初始化缓存
+	initCache()
+	// 初始化gdal dataset的内存池
+	g_gdalPool.Init()
+	
 	r := gin.Default()
 	r.GET("/:z/:x/:y", func(c *gin.Context) {
-		fmt.Println("URL Path:", c.Request.URL.Path)
-		
 		z, err := strconv.Atoi(c.Param("z"))
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid zoom level")
@@ -46,14 +53,25 @@ func service(jsonPath string) {
 			c.String(http.StatusBadRequest, "Invalid Y coordinate")
 			return
 		}
-		
-		imageData,_ := mosaic.ReadTile(z, x, y)
-		if imageData != nil {
+
+		// 计时器
+		start := time.Now()
+		// 读取缓存
+		if imageData := getTile(z, x, y); imageData != nil {
+			c.Data(http.StatusOK, "image/png", imageData)
+		} else if imageData,_ := mosaic.ReadTile(z, x, y); imageData != nil{
+			// 设置缓存
+			setTile(z, x, y, imageData)
 			c.Data(http.StatusOK, "image/png", imageData)
 		} else {
 			c.String(http.StatusInternalServerError, "Error generating image")
 		}
+		elapsed := time.Since(start)
+		ms := elapsed / time.Millisecond
+		if ms > 1000 {
+			fmt.Println(z,x,y," Time use: ", elapsed)
+		}
 	})
-
+	
 	r.Run(":8080")	
 }

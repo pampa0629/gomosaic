@@ -3,7 +3,7 @@ package main
 import (
 	"math"
 	// "fmt"
-	"path/filepath"
+	// "path/filepath"
 )
 
 // 提供一些公共的定义和方法
@@ -22,23 +22,38 @@ func CalcBBox(z int, x int, y int) (bbox BBox) {
 	yDis := 180.0 / (math.Pow(2, float64(z)))
 	bbox.XMin = float64(x)*xDis - 180.0
 	bbox.XMax = bbox.XMin + xDis
+
 	bbox.YMax = 90 - float64(y)*yDis
 	bbox.YMin = bbox.YMax - yDis	
-	// fmt.Println("dis:", xDis, yDis)
-	// fmt.Println("bbox:", bbox)
 	return
 }
 
-// 根据要绘制的地理范围，和tiff文件本身的地理范围，计算要绘制的像素范围
-func CalcPixelRange(bbox, tifBbox BBox, width, height int) (xMinPixel, yMinPixel, xMaxPixel, yMaxPixel int) {
+// 根据地理范围和z值，计算出x和y的最大最小值
+func CalcTileRange(bbox BBox, z int) (xMin, xMax, yMin, yMax int) {
+	xDis := 360.0 / (math.Pow(2, float64(z)))
+	yDis := 180.0 / (math.Pow(2, float64(z)))
+	xMin = int((bbox.XMin + 180.0) / xDis)
+	xMax = int((bbox.XMax + 180.0) / xDis)
+	yMax = int((90.0 - bbox.YMin) / yDis)
+	yMin = int((90.0 - bbox.YMax) / yDis)
+	return
+}
+
+// 计算两个地理范围的交集，在第二个box上的像素范围；width和height为第二个box的像素大小
+// 例如：bbox1为要绘制的地理范围，bbox2为tiff文件的地理范围，width和height为tiff文件的像素大小；
+// 		返回值为要绘制的地理范围在tiff文件上的像素范围
+// 注意：地理方向是Y朝上，像素方向是Y朝下
+func CalcPixelRange(bbox, bbox2 BBox, width, height int) (xMinPixel, yMinPixel, xMaxPixel, yMaxPixel int) {
 	// 先计算地理范围和tiff文件范围交叉的大小
-	intersection := GetIntersection(bbox, tifBbox)
-	// 计算交叉范围的左上角像素坐标
-	xMinPixel = int((intersection.XMin - tifBbox.XMin) / (tifBbox.XMax - tifBbox.XMin) * float64(width))
-	yMinPixel = int((tifBbox.YMax - intersection.YMax) / (tifBbox.YMax - tifBbox.YMin) * float64(height))
-	// 计算交叉范围的右下角像素坐标
-	xMaxPixel = int((intersection.XMax - tifBbox.XMin) / (tifBbox.XMax - tifBbox.XMin) * float64(width))
-	yMaxPixel = int((tifBbox.YMax - intersection.YMin) / (tifBbox.YMax - tifBbox.YMin) * float64(height))
+	intersection := GetIntersection(bbox, bbox2)
+	xScale := float64(width) / (bbox2.XMax - bbox2.XMin)
+	yScale := float64(height) / (bbox2.YMax - bbox2.YMin)
+	// 计算交叉范围的X方向
+	xMinPixel = int((intersection.XMin - bbox2.XMin) * xScale)
+	xMaxPixel = int((intersection.XMax - bbox2.XMin) * xScale)
+	// 计算交叉范围的Y方向
+	yMinPixel = int((bbox2.YMax - intersection.YMax) * yScale)
+	yMaxPixel = int((bbox2.YMax - intersection.YMin) * yScale)
 	return
 }
 
@@ -51,21 +66,3 @@ func GetIntersection(bbox1, bbox2 BBox) (bbox BBox) {
 	return
 }
 
-// 得到相对路径
-func GetRelativePath(bathpath, targetpath string) string {
-	bathpath = filepath.Dir(bathpath) // 先得到路径
-	relpath, err := filepath.Rel(bathpath, targetpath)
-	if err != nil { // 有错误，就直接返回
-		return targetpath
-	}
-	return relpath
-}
-
-// 通过绝对路径+相对路径，得到绝对路径
-// 例如：c:/temp/a.b + ./c.d --> c:/temp/c.d
-func GetAbsolutePath(basepath, relpath string) string {
-	basepath = filepath.Dir(basepath)
-	abspath := filepath.Clean(filepath.Join(basepath, relpath))
-	abspath = filepath.ToSlash(abspath)
-	return abspath
-}
